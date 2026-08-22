@@ -87,6 +87,34 @@ func main() {
 	pts := macro.ResidualTargets(f.Grid, bg, 12)
 	fmt.Printf("colors=%v bg=%d\n", colorCounts(f.Grid), bg)
 	fmt.Printf("drive: best=%s savings=%d score=%.3f residualClusters=%d\n", bp.Name, sav, macro.DriveScore(f.Grid, bg), len(pts))
+	fmt.Print("static per-primitive savings: ")
+	for _, p := range macro.Primitives {
+		fmt.Printf("%s=%d  ", p.Name, p.Savings(f.Grid, bg))
+	}
+	fmt.Println()
+
+	// Residual-centroid sanity check: ResidualTargets clicks the MEAN position
+	// of each residual cluster. For a convex blob the mean lands inside it, but
+	// for a hollow/ring/non-convex anomaly shape the centroid can land on a
+	// background cell that isn't part of the anomaly at all -- a plausible
+	// candidate-generation gap distinct from the primitive/reinforcement layer.
+	if resCells := macro.ResidualCells(f.Grid, bg); len(resCells) > 0 {
+		cellSet := make(map[macro.Cell]bool, len(resCells))
+		for _, c := range resCells {
+			cellSet[c] = true
+		}
+		onCell, offCell := 0, 0
+		for _, pt := range pts {
+			if cellSet[macro.Cell{R: pt.Y, C: pt.X}] {
+				onCell++
+			} else {
+				offCell++
+				fmt.Printf("  residual centroid MISS: (%d,%d) size=%d is NOT itself a residual cell\n", pt.X, pt.Y, pt.Size)
+			}
+		}
+		fmt.Printf("residual centroid check: %d/%d targets land ON an actual residual cell, %d miss\n", onCell, onCell+offCell, offCell)
+		fmt.Println("residual targets:", pts)
+	}
 
 	// POINTS mode: instead of a grid sweep, probe exact "x,y;x,y;..." coordinates
 	// and print the FULL per-primitive delta for each -- for comparing a known-good

@@ -298,15 +298,28 @@ func ResidualCells(grid [][]int, bg int) []Cell {
 	if sav == 0 {
 		return nil
 	}
+	var out []Cell
 	switch bp.Name {
 	case "Reflect":
-		return reflectResidual(grid, bg)
+		out = reflectResidual(grid, bg)
 	case "Translate":
-		return translateResidual(grid, bg)
+		out = translateResidual(grid, bg)
 	case "Count":
-		return countResidual(grid, bg)
+		out = countResidual(grid, bg)
+	case "Correspondence":
+		out = correspondenceResidual(grid, bg)
 	}
-	return nil
+	// Correspondence residual is surfaced ADDITIONALLY even when it is not the
+	// argmax primitive. By raw magnitude it is almost never the biggest
+	// (Translate/Count typically dominate a whole board), which would
+	// otherwise make its click-relevant cells invisible to candidate
+	// generation -- the exact aggregation blind spot already fixed for
+	// model-free reinforcement (BestPrimitiveDelta in mdl.go), now fixed here
+	// for perception/candidate-generation too.
+	if bp.Name != "Correspondence" {
+		out = append(out, correspondenceResidual(grid, bg)...)
+	}
+	return out
 }
 
 // clusterResidual groups residual cells into 4-connected clusters.
