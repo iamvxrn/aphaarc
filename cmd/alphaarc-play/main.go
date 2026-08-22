@@ -778,7 +778,13 @@ func main() {
 		// the drive's savings, so the grow button (savings up) is reinforced and shrink
 		// (savings down) suppressed. This is the validated gradient (probe: grow
 		// 1332->1390 completes L1) doing the work the predictor cannot.
-		dd := float64(macro.DrivePreference(frame.Grid, frameBg) - macro.DrivePreference(preStepGrid, frameBg))
+		//
+		// Use BestPrimitiveDelta (max per-primitive Δsavings), not
+		// DrivePreference-of-DrivePreference: the latter diffs the argmax
+		// primitive of each frame, so a dominant whole-grid primitive (e.g.
+		// background Translate on s5i5/tn36) can mask a smaller primitive's
+		// (e.g. Correspondence) real local gain from ever reaching driveGain.
+		dd := float64(macro.BestPrimitiveDelta(preStepGrid, frame.Grid, frameBg))
 		driveGain[chosenTok] = 0.6*driveGain[chosenTok] + 0.4*dd
 
 		// Pragmatic drive (source of meaning). LEARNED, not guessed (the dream):

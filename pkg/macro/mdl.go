@@ -235,3 +235,24 @@ func BestPrimitive(grid [][]int, bg int) (Primitive, int) {
 	}
 	return best, bestSave
 }
+
+// BestPrimitiveDelta returns the largest single-primitive compression gain
+// between before and after: max over primitives p of Savings_p(after) -
+// Savings_p(before). This is deliberately NOT DrivePreference(after) -
+// DrivePreference(before) — that diffs two possibly-DIFFERENT argmax
+// primitives, so a big dominant primitive (e.g. a whole-background Translate)
+// can swamp a smaller primitive's real local improvement (e.g. Correspondence
+// matching one template region) out of the delta entirely. Crediting the
+// best-IMPROVING axis instead of the best-ABSOLUTE axis lets model-free
+// reinforcement (cmd/alphaarc-play) notice a click that helps a locally
+// dominated primitive even while a bigger primitive's savings stay flat or
+// dip — the aggregation fix for the s5i5/tn36 Correspondence wall.
+func BestPrimitiveDelta(before, after [][]int, bg int) int {
+	best := Primitives[0].Savings(after, bg) - Primitives[0].Savings(before, bg)
+	for _, p := range Primitives[1:] {
+		if d := p.Savings(after, bg) - p.Savings(before, bg); d > best {
+			best = d
+		}
+	}
+	return best
+}

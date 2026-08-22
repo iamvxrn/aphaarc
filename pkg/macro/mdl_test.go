@@ -155,3 +155,72 @@ func TestReflect_DeltaLDriveRecoversSymmetry(t *testing.T) {
 		t.Fatalf("drive destroyed structure: fg=%d < original=%d", got, want)
 	}
 }
+
+// TestAggregation_BestPrimitiveDeltaSurvivesDominantPrimitive is the offline
+// proof for the aggregation fix (2026-08-22): a click that only improves a
+// SMALL primitive's savings (Correspondence) must still register a positive
+// reward even while a BIG, unchanged primitive (a whole-background Translate
+// stripe) dominates the absolute DrivePreference of both frames -- the exact
+// failure mode found live on s5i5/tn36, where Correspondence's local template
+// match never outweighs the background's Translate savings.
+func TestAggregation_BestPrimitiveDeltaSurvivesDominantPrimitive(t *testing.T) {
+	bg := 9
+	w, h := 30, 16
+
+	// Dominant background: a period-2 horizontal stripe over columns [0,16),
+	// far bigger in raw savings than the Correspondence pair placed to its
+	// right (mirrors TestEmergence_SelectsCorrespondence's placement, shifted).
+	full := bgGrid(h, w, bg)
+	for r := 0; r < h; r++ {
+		for c := 0; c < 16; c++ {
+			if c%2 == 0 {
+				full[r][c] = 5
+			} else {
+				full[r][c] = 6
+			}
+		}
+	}
+	place(full, 1, 17, symBox)
+	place(full, 9, 22, symBox)
+
+	// partial: knock out one interior cell of the second box (top-left (9,22),
+	// so its center is (11,24)), same as TestCorrespondence_FillRaisesSaving --
+	// the click "fills" it back in.
+	partial := cloneGrid(full)
+	partial[11][24] = bg
+
+	corrBefore := CorrespondencePreference(partial, bg)
+	corrAfter := CorrespondencePreference(full, bg)
+	trBefore := TranslatePreference(partial, bg)
+	trAfter := TranslatePreference(full, bg)
+	t.Logf("Correspondence: before=%d after=%d | Translate: before=%d after=%d", corrBefore, corrAfter, trBefore, trAfter)
+
+	if corrAfter <= corrBefore {
+		t.Fatalf("filling the cell must raise Correspondence savings: before=%d after=%d", corrBefore, corrAfter)
+	}
+	if trBefore <= corrAfter {
+		t.Fatalf("test setup must have Translate DOMINATE Correspondence in absolute size: translate=%d correspondence(after)=%d", trBefore, corrAfter)
+	}
+	if trBefore != trAfter {
+		t.Fatalf("test setup requires Translate UNCHANGED by the click, so it fully masks the naive diff: before=%d after=%d", trBefore, trAfter)
+	}
+
+	// The naive diff -- DrivePreference(after) - DrivePreference(before) --
+	// only reflects the argmax primitive's OWN delta. Translate dominates and
+	// is unchanged in both frames, so BestPrimitive picks it both times and
+	// the naive diff is swamped to 0, even though Correspondence genuinely
+	// improved. This is the aggregation bug cmd/alphaarc-play hit live.
+	if naive := DrivePreference(full, bg) - DrivePreference(partial, bg); naive != 0 {
+		t.Fatalf("test setup expected the naive DrivePreference diff to be swamped to 0, got %d", naive)
+	}
+
+	// BestPrimitiveDelta must see through the dominant primitive and credit
+	// the click for the Correspondence improvement it actually caused.
+	got := BestPrimitiveDelta(partial, full, bg)
+	if want := corrAfter - corrBefore; got != want {
+		t.Fatalf("BestPrimitiveDelta should equal the best-improving primitive's own delta: got=%d want=%d", got, want)
+	}
+	if got <= 0 {
+		t.Fatalf("BestPrimitiveDelta must be positive when a non-dominant primitive genuinely improves, got %d", got)
+	}
+}
