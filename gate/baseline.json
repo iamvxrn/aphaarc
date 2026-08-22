@@ -1,0 +1,44 @@
+{
+  "ft09-0d8bbf25": {
+    "set": "blind",
+    "repeats": 3,
+    "solveRate": 0,
+    "meanBestLevels": 0,
+    "meanChanged": 7.666666666666667
+  },
+  "lp85-305b61c3": {
+    "set": "dev",
+    "repeats": 3,
+    "solveRate": 0,
+    "meanBestLevels": 0,
+    "meanChanged": 14.333333333333334
+  },
+  "r11l-495a7899": {
+    "set": "dev",
+    "repeats": 3,
+    "solveRate": 1,
+    "meanBestLevels": 1,
+    "meanChanged": 145.33333333333334
+  },
+  "s5i5-18d95033": {
+    "set": "blind",
+    "repeats": 3,
+    "solveRate": 0,
+    "meanBestLevels": 0,
+    "meanChanged": 133.66666666666666
+  },
+  "tn36-ef4dde99": {
+    "set": "blind",
+    "repeats": 3,
+    "solveRate": 0,
+    "meanBestLevels": 0,
+    "meanChanged": 148.66666666666666
+  },
+  "vc33-5430563c": {
+    "set": "dev",
+    "repeats": 3,
+    "solveRate": 0.6666666666666666,
+    "meanBestLevels": 0.6666666666666666,
+    "meanChanged": 138
+  }
+}
