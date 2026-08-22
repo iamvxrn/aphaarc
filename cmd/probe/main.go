@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"alphaarc/pkg/environment"
 	"alphaarc/pkg/environment/perception"
@@ -87,6 +88,32 @@ func main() {
 	fmt.Printf("colors=%v bg=%d\n", colorCounts(f.Grid), bg)
 	fmt.Printf("drive: best=%s savings=%d score=%.3f residualClusters=%d\n", bp.Name, sav, macro.DriveScore(f.Grid, bg), len(pts))
 
+	// POINTS mode: instead of a grid sweep, probe exact "x,y;x,y;..." coordinates
+	// and print the FULL per-primitive delta for each -- for comparing a known-good
+	// click against a suspected false-positive click side by side.
+	if pointsEnv := os.Getenv("POINTS"); pointsEnv != "" {
+		for _, pair := range strings.Split(pointsEnv, ";") {
+			var x, y int
+			if _, err := fmt.Sscanf(pair, "%d,%d", &x, &y); err != nil {
+				fmt.Printf("bad point %q: %v\n", pair, err)
+				continue
+			}
+			f0, _ := sess.Reset()
+			f1, err := sess.Step(environment.Action{ID: environment.Action6, X: x, Y: y})
+			if err != nil {
+				fmt.Println("step:", err)
+				continue
+			}
+			nc := changedCells(f0.Grid, f1.Grid)
+			fmt.Printf("POINT (%d,%d): cells=%d levels=%d state=%s | ", x, y, nc, f1.LevelsCompleted, f1.State)
+			for _, p := range macro.Primitives {
+				fmt.Printf("%s: %d->%d (%+d)  ", p.Name, p.Savings(f0.Grid, bg), p.Savings(f1.Grid, bg), p.Savings(f1.Grid, bg)-p.Savings(f0.Grid, bg))
+			}
+			fmt.Println()
+		}
+		return
+	}
+
 	// Step sweep: reset before each probe, click, report board-changing clicks with
 	// the compression delta and whether they complete a level. Answers: is the game
 	// interactive at all, and does the drive point toward the solving click?
@@ -99,6 +126,17 @@ func main() {
 	changers, solvers, posDelta, negDelta := 0, 0, 0, 0
 	bestDelta, bestX, bestY := -1<<30, -1, -1
 	corrBest, corrX, corrY := -1<<30, -1, -1
+	// Per-primitive breakdown: for each primitive, the largest single-click delta
+	// seen and where. This is the diagnostic for "does BestPrimitiveDelta (max
+	// over primitives) get hijacked by a small/volatile primitive's noise instead
+	// of the real target primitive's genuine, larger-but-not-max delta?" -- the
+	// question raised by the vc33 regression after switching model-free
+	// reinforcement from DrivePreference-diff to BestPrimitiveDelta.
+	primMax := make([]int, len(macro.Primitives))
+	primMaxAt := make([][2]int, len(macro.Primitives))
+	for i := range primMax {
+		primMax[i] = -1 << 30
+	}
 	for y := 0; y < h; y += step {
 		for x := 0; x < w; x += step {
 			f0, _ := sess.Reset()
@@ -123,6 +161,12 @@ func main() {
 			if cd > corrBest {
 				corrBest, corrX, corrY = cd, x, y
 			}
+			for i, p := range macro.Primitives {
+				pd := p.Savings(f1.Grid, bg) - p.Savings(f0.Grid, bg)
+				if pd > primMax[i] {
+					primMax[i], primMaxAt[i] = pd, [2]int{x, y}
+				}
+			}
 			if d > 0 {
 				posDelta++
 			} else if d < 0 {
@@ -139,4 +183,9 @@ func main() {
 	}
 	fmt.Printf("SWEEP(step %d): board-changers=%d  level-solvers=%d  posDelta=%d negDelta=%d  bestDelta=%+d@(%d,%d)  bestCorrespondenceDelta=%+d@(%d,%d)\n",
 		step, changers, solvers, posDelta, negDelta, bestDelta, bestX, bestY, corrBest, corrX, corrY)
+	fmt.Print("per-primitive best delta: ")
+	for i, p := range macro.Primitives {
+		fmt.Printf("%s=%+d@(%d,%d)  ", p.Name, primMax[i], primMaxAt[i][0], primMaxAt[i][1])
+	}
+	fmt.Println()
 }

@@ -236,22 +236,41 @@ func BestPrimitive(grid [][]int, bg int) (Primitive, int) {
 	return best, bestSave
 }
 
-// BestPrimitiveDelta returns the largest single-primitive compression gain
-// between before and after: max over primitives p of Savings_p(after) -
-// Savings_p(before). This is deliberately NOT DrivePreference(after) -
-// DrivePreference(before) — that diffs two possibly-DIFFERENT argmax
-// primitives, so a big dominant primitive (e.g. a whole-background Translate)
-// can swamp a smaller primitive's real local improvement (e.g. Correspondence
-// matching one template region) out of the delta entirely. Crediting the
-// best-IMPROVING axis instead of the best-ABSOLUTE axis lets model-free
-// reinforcement (cmd/alphaarc-play) notice a click that helps a locally
-// dominated primitive even while a bigger primitive's savings stay flat or
-// dip — the aggregation fix for the s5i5/tn36 Correspondence wall.
+// BestPrimitiveDelta returns the signed delta of whichever primitive's
+// savings moved the MOST (by absolute value) between before and after: the
+// delta_p with the largest |delta_p| over primitives p. This is deliberately
+// NOT DrivePreference(after) - DrivePreference(before) — that diffs two
+// possibly-DIFFERENT argmax primitives, so a big dominant primitive (e.g. a
+// whole-background Translate) can swamp a smaller primitive's real local
+// improvement (e.g. Correspondence matching one template region) out of the
+// delta entirely. Crediting the biggest-MOVING axis instead of the
+// biggest-ABSOLUTE axis lets model-free reinforcement (cmd/alphaarc-play)
+// notice a click that helps a locally dominated primitive even while a
+// bigger primitive's savings stay flat or dip — the aggregation fix for the
+// s5i5/tn36 Correspondence wall.
+//
+// It is ALSO deliberately not a plain max(delta_p): plain max degenerates
+// whenever any primitive is simply inapplicable to the grid (savings flat at
+// 0 in both frames, as Correspondence/Count are on most boards) — that flat
+// 0 then outranks a genuine NEGATIVE delta from the primitive(s) that DO
+// apply, silently erasing punishment for a click that made things worse.
+// This caused a real live regression on vc33 (commit 606f770): its "shrink"
+// button lowered both Reflect (-108) and Translate (-21) savings, but Count
+// and Correspondence don't apply to vc33's board (flat 0), so plain max()
+// reported 0 (neutral) instead of -108, and the agent's exploitation could
+// no longer reliably tell grow from shrink. See
+// TestAggregation_WorseningClickIsPunishedNotFloored.
 func BestPrimitiveDelta(before, after [][]int, bg int) int {
-	best := Primitives[0].Savings(after, bg) - Primitives[0].Savings(before, bg)
-	for _, p := range Primitives[1:] {
-		if d := p.Savings(after, bg) - p.Savings(before, bg); d > best {
-			best = d
+	best := 0
+	bestAbs := -1
+	for _, p := range Primitives {
+		d := p.Savings(after, bg) - p.Savings(before, bg)
+		abs := d
+		if abs < 0 {
+			abs = -abs
+		}
+		if abs > bestAbs {
+			best, bestAbs = d, abs
 		}
 	}
 	return best

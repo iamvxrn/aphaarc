@@ -224,3 +224,64 @@ func TestAggregation_BestPrimitiveDeltaSurvivesDominantPrimitive(t *testing.T) {
 		t.Fatalf("BestPrimitiveDelta must be positive when a non-dominant primitive genuinely improves, got %d", got)
 	}
 }
+
+// TestAggregation_WorseningClickIsPunishedNotFloored is the offline
+// reproduction of the vc33 LIVE REGRESSION found right after the fix above
+// (2026-08-22): plain max() over per-primitive deltas silently erases
+// punishment for a click that makes EVERY applicable primitive worse,
+// because an INAPPLICABLE primitive sitting flat at delta=0 (Count and
+// Correspondence don't apply to vc33's board) always beats a genuine
+// negative delta in a plain max. Live: clicking vc33's "shrink" button
+// dropped Reflect 308->200 (-108) and Translate 1332->1311 (-21), but
+// Count/Correspondence stayed at flat 0, so plain max() reported 0 (neutral)
+// instead of punishing the click -- confusing exploitation between the grow
+// and shrink buttons and costing several resets to still find L1 (still
+// solved 1/2 runs, but far less reliably than the pre-fix baseline's 2/2
+// fast solves). BestPrimitiveDelta must report the delta of whichever
+// primitive moved the MOST (by absolute value), preserving its sign.
+func TestAggregation_WorseningClickIsPunishedNotFloored(t *testing.T) {
+	bg := 9
+	// A period-2 horizontal stripe over columns [0,16) of an otherwise blank
+	// 30-wide grid (same shape as the dominant background in
+	// TestAggregation_BestPrimitiveDeltaSurvivesDominantPrimitive) -- only
+	// Translate finds structure here; Reflect/Count/Correspondence sit flat
+	// at 0 because there's no mirror symmetry or repeated discrete object.
+	good := bgGrid(16, 30, bg)
+	for r := 0; r < 16; r++ {
+		for c := 0; c < 16; c++ {
+			if c%2 == 0 {
+				good[r][c] = 5
+			} else {
+				good[r][c] = 6
+			}
+		}
+	}
+	// Knock out one cell: breaks the period locally, worsening Translate --
+	// mirrors the vc33 shrink click that lowered Translate (and Reflect).
+	// Correspondence has no repeated discrete component to match here (just a
+	// stripe), so it stays flat at 0 -- that flat 0 is the pivot of the bug:
+	// a naive max() prefers "unmoved" over "moved, but for the worse."
+	bad := cloneGrid(good)
+	bad[0][2] = bg
+
+	reflBefore, reflAfter := SymmetryPreference(good, bg), SymmetryPreference(bad, bg)
+	trBefore, trAfter := TranslatePreference(good, bg), TranslatePreference(bad, bg)
+	cntBefore, cntAfter := NumerosityPreference(good, bg), NumerosityPreference(bad, bg)
+	corrBefore, corrAfter := CorrespondencePreference(good, bg), CorrespondencePreference(bad, bg)
+	t.Logf("Reflect %d->%d Translate %d->%d Count %d->%d Correspondence %d->%d",
+		reflBefore, reflAfter, trBefore, trAfter, cntBefore, cntAfter, corrBefore, corrAfter)
+
+	if trAfter >= trBefore {
+		t.Fatalf("test setup expected the edit to WORSEN periodicity: before=%d after=%d", trBefore, trAfter)
+	}
+	if corrBefore != 0 || corrAfter != 0 {
+		t.Fatalf("test setup expected Correspondence to stay inapplicable (flat 0): got %d->%d", corrBefore, corrAfter)
+	}
+
+	// A naive max() over per-primitive deltas sees Correspondence's flat 0 as
+	// "better" than Translate's genuine negative delta, and reports 0 --
+	// silently erasing the punishment. BestPrimitiveDelta must not do this.
+	if got := BestPrimitiveDelta(good, bad, bg); got >= 0 {
+		t.Fatalf("a click that worsens the applicable primitives must be punished with a negative delta, got %+d", got)
+	}
+}

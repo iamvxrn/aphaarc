@@ -779,11 +779,14 @@ func main() {
 		// (savings down) suppressed. This is the validated gradient (probe: grow
 		// 1332->1390 completes L1) doing the work the predictor cannot.
 		//
-		// Use BestPrimitiveDelta (max per-primitive Δsavings), not
-		// DrivePreference-of-DrivePreference: the latter diffs the argmax
-		// primitive of each frame, so a dominant whole-grid primitive (e.g.
-		// background Translate on s5i5/tn36) can mask a smaller primitive's
-		// (e.g. Correspondence) real local gain from ever reaching driveGain.
+		// Use BestPrimitiveDelta (the signed delta of whichever primitive moved
+		// most by absolute value), not DrivePreference-of-DrivePreference: the
+		// latter diffs the argmax primitive of each frame, so a dominant
+		// whole-grid primitive (e.g. background Translate on s5i5/tn36) can
+		// mask a smaller primitive's (e.g. Correspondence) real local gain from
+		// ever reaching driveGain. (A plain max()-of-deltas has its own bug:
+		// an inapplicable primitive flat at 0 outranks a genuine negative
+		// delta and erases punishment -- BestPrimitiveDelta avoids that too.)
 		dd := float64(macro.BestPrimitiveDelta(preStepGrid, frame.Grid, frameBg))
 		driveGain[chosenTok] = 0.6*driveGain[chosenTok] + 0.4*dd
 
