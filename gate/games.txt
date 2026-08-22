@@ -1,0 +1,30 @@
+# AlphaARC generalization gate -- FROZEN game split.
+#
+# The whole point of this file is the discipline it encodes, so read before editing:
+#
+#   DEV   games: we are ALLOWED to look at, probe, and tune hyperparameters
+#         against these. They are the "training" set. Regressions here FAIL the
+#         gate (a change must not break a game we already solve).
+#
+#   BLIND games: the held-out generalization signal. We run the SAME frozen
+#         agent on them and look at the number, but we NEVER tune constants to
+#         make them pass -- that would be Goodhart (the measure eating the
+#         mission). Moving a BLIND game only counts if it moved WITHOUT the
+#         constants having been fit to it. If you ever tune against a blind
+#         game, MOVE it to dev here and add a fresh untouched game to blind.
+#
+# Format: "<dev|blind> <full-game-id>". Blank lines and # comments ignored.
+#
+# Roster note (2026-08-22): these 6 are the only pure-click games
+# (available_actions == [ACTION6]); su15/lf52 were miscategorized earlier and
+# have extra actions. dev = the 3 currently solved (their constants were fit to
+# vc33); blind = the 3 unsolved, ft09 being the one never touched before it was
+# added here.
+
+dev   vc33-5430563c
+dev   lp85-305b61c3
+dev   r11l-495a7899
+
+blind ft09-0d8bbf25
+blind tn36-ef4dde99
+blind s5i5-18d95033

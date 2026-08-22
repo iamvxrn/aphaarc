@@ -51,7 +51,13 @@ func main() {
 	rows := flag.Int("rows", 16, "grid-cell lattice rows for ChooseClickAction")
 	curiosityStep := flag.Float64("curiosity-step", 0.1, "how much Curiosity moves per action, up on failure, down on success")
 	exploreActions := flag.Float64("explore-actions", 0.2, "probability of trying a random available SIMPLE action (ACTION1-5) instead of a click, so the agent explores the whole action space, not just clicks")
+	seed := flag.Int64("seed", 0, "seed for math/rand; 0 leaves Go's default per-process auto-seed. NOTE: reduces but does NOT eliminate run-to-run variation (Go randomizes map iteration order too), so the gate leans on repeats, not on this alone.")
+	resultJSON := flag.Bool("result-json", false, "on exit, print one machine-readable line `RESULT {json}` (game, seed, actions, bestLevels, changedActions) for cmd/alphaarc-gate to parse")
 	flag.Parse()
+
+	if *seed != 0 {
+		rand.Seed(*seed)
+	}
 
 	ctx := context.Background()
 
@@ -109,6 +115,8 @@ func main() {
 		return engine.LearnedPreference(vec) + hypWeight*macro.DriveScore(grid, perception.BackgroundColor(grid)) - dangerAvoidWeight*engine.DangerProximity(vec)
 	}
 	actionsTaken := 0
+	bestLevels := frame.LevelsCompleted // highest levels_completed reached this process (gate metric; survives resets)
+	changedActions := 0                 // actions after which the observation changed at all (dense interaction signal)
 	prevObservation := ""
 	prevClickedLabel := ""
 	prevLevelsCompleted := frame.LevelsCompleted
@@ -470,6 +478,12 @@ func main() {
 		// printed too since it's what determined whether this action was
 		// an exploration override or the default WTA/fallback choice.
 		changedSinceLastFrame := prevObservation == "" || observation != prevObservation
+		if prevObservation != "" && observation != prevObservation {
+			changedActions++
+		}
+		if frame.LevelsCompleted > bestLevels {
+			bestLevels = frame.LevelsCompleted
+		}
 
 		// Inhibition of return + stagnation, judged on OBJECT TOPOLOGY, not raw
 		// pixels (conveyor-belt fix): a body sliding under act-5 changes pixels
@@ -935,11 +949,21 @@ func main() {
 	}
 
 	fmt.Printf("stopped after %d actions, final state=%s levels_completed=%d\n", actionsTaken, frame.State, frame.LevelsCompleted)
+	if frame.LevelsCompleted > bestLevels {
+		bestLevels = frame.LevelsCompleted
+	}
 
 	if summary, err := client.CloseScorecard(ctx, cardID); err != nil {
 		log.Printf("close scorecard: %v (scorecard %s left open on the server)", err, cardID)
 	} else {
 		fmt.Printf("scorecard closed: %+v\n", summary)
+	}
+
+	// Machine-readable result for cmd/alphaarc-gate. One line, last, so the gate
+	// can grep it out of the verbose live log without parsing Go's map format.
+	if *resultJSON {
+		fmt.Printf("RESULT {\"game\":%q,\"seed\":%d,\"actions\":%d,\"bestLevels\":%d,\"changedActions\":%d}\n",
+			target, *seed, actionsTaken, bestLevels, changedActions)
 	}
 }
 
