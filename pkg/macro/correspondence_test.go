@@ -150,7 +150,7 @@ func TestEmergence_SelectsCorrespondence(t *testing.T) {
 	}
 }
 
-// correspondenceResidual must point AT the exact cell a click needs to fix --
+// CorrespondenceResidual must point AT the exact cell a click needs to fix --
 // the click-candidate feed added 2026-08-22 after finding that ft09 had a
 // real (nonzero) Correspondence signal but ResidualCells never offered a
 // candidate for it in 150 live actions, because it had no Correspondence case
@@ -162,7 +162,7 @@ func TestCorrespondenceResidual_PointsAtTheMissingCell(t *testing.T) {
 	place(partial, 1, 8, symBox)
 	partial[3][10] = bg // same knockout as TestCorrespondence_FillRaisesSaving
 
-	got := correspondenceResidual(partial, bg)
+	got := CorrespondenceResidual(partial, bg)
 	if len(got) != 1 || got[0] != (Cell{R: 3, C: 10}) {
 		t.Fatalf("expected exactly the knocked-out cell {3,10}, got %v", got)
 	}

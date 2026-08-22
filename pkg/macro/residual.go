@@ -307,7 +307,7 @@ func ResidualCells(grid [][]int, bg int) []Cell {
 	case "Count":
 		out = countResidual(grid, bg)
 	case "Correspondence":
-		out = correspondenceResidual(grid, bg)
+		out = CorrespondenceResidual(grid, bg)
 	}
 	// Correspondence residual is surfaced ADDITIONALLY even when it is not the
 	// argmax primitive. By raw magnitude it is almost never the biggest
@@ -317,7 +317,7 @@ func ResidualCells(grid [][]int, bg int) []Cell {
 	// model-free reinforcement (BestPrimitiveDelta in mdl.go), now fixed here
 	// for perception/candidate-generation too.
 	if bp.Name != "Correspondence" {
-		out = append(out, correspondenceResidual(grid, bg)...)
+		out = append(out, CorrespondenceResidual(grid, bg)...)
 	}
 	return out
 }

@@ -181,7 +181,7 @@ func minResidual(a, b [][]int, bg int) int {
 // The *Cells variants below mirror residualIdentity/residualReflectH/
 // residualReflectV/residualColorSwap exactly, but return the LOCAL (row,col)
 // positions inside `a` that differ, instead of just a count -- the click
-// candidates for correspondenceResidual. Kept separate from the hot-path
+// candidates for CorrespondenceResidual. Kept separate from the hot-path
 // count-only functions (called once per grid, every candidate primitive
 // comparison) to avoid allocating cell slices there.
 
@@ -269,7 +269,7 @@ type correspondenceRegion struct{ minR, minC, maxR, maxC int }
 
 // correspondenceGroups finds ANCHORS: components grouped by the loose
 // (W, H, colour) signature (V1: exact WxH, no scale) -- the same grouping
-// CorrespondenceSavings and correspondenceResidual both need.
+// CorrespondenceSavings and CorrespondenceResidual both need.
 func correspondenceGroups(grid [][]int, bg int) map[string][]correspondenceRegion {
 	comps := components(grid, bg)
 	if len(comps) < 2 {
@@ -327,7 +327,7 @@ func CorrespondenceSavings(grid [][]int, bg int) int {
 	return savings
 }
 
-// correspondenceResidual returns the ABSOLUTE grid cells that currently
+// CorrespondenceResidual returns the ABSOLUTE grid cells that currently
 // disagree with their class's reference (template) under the best-fitting
 // transform -- the cells a click would need to fix to raise
 // CorrespondenceSavings. This is the click-candidate feed for ResidualCells:
@@ -337,7 +337,7 @@ func CorrespondenceSavings(grid [][]int, bg int) int {
 // the same pattern found live on ft09-0d8bbf25: Correspondence savings=89,
 // nonzero, but zero candidate clicks ever targeted it in 150 real actions,
 // because ResidualCells never had a case for Correspondence at all).
-func correspondenceResidual(grid [][]int, bg int) []Cell {
+func CorrespondenceResidual(grid [][]int, bg int) []Cell {
 	groups := correspondenceGroups(grid, bg)
 	var out []Cell
 	for _, members := range groups {

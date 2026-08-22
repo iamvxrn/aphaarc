@@ -116,6 +116,22 @@ func main() {
 		fmt.Println("residual targets:", pts)
 	}
 
+	corrResCells := macro.CorrespondenceResidual(f.Grid, bg)
+	fmt.Printf("CorrespondenceResidual: %d cells: %v\n", len(corrResCells), corrResCells)
+
+	// Would a Correspondence-relevant cluster survive the LIVE agent's
+	// ResidualTargets(grid, bg, 8) top-8-by-cluster-SIZE cutoff? If
+	// Correspondence's cells form small clusters buried behind big
+	// self-regularity clusters, the candidate-generation fix (ResidualCells
+	// now includes them) is necessary but not sufficient live.
+	allTargets := macro.ResidualTargets(f.Grid, bg, 0) // 0 = all clusters, unranked cutoff
+	top8 := macro.ResidualTargets(f.Grid, bg, 8)
+	fmt.Printf("ALL residual clusters (%d total, sizes): ", len(allTargets))
+	for _, t := range allTargets {
+		fmt.Printf("%d ", t.Size)
+	}
+	fmt.Printf("\ntop-8 cutoff (what the live agent actually sees): %v\n", top8)
+
 	// POINTS mode: instead of a grid sweep, probe exact "x,y;x,y;..." coordinates
 	// and print the FULL per-primitive delta for each -- for comparing a known-good
 	// click against a suspected false-positive click side by side.
