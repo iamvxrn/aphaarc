@@ -26,3 +26,7 @@ CONCEPT.md
 *.key
 
 *.log
+
+# Python
+__pycache__/
+*.pyc
