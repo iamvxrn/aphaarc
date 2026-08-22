@@ -1,6 +1,7 @@
 # Executables & Binaries
 /alphaarc-*
 /protaxon-*
+/probe
 *.exe
 *.exe;
 *.dll
